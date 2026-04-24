@@ -285,6 +285,7 @@ def parse_page(page_text: str) -> dict:
     page_data = {
         'race_header': {},
         'pars':        {},
+        'purse':       None,
         'entries':     [],
     }
 
@@ -299,6 +300,13 @@ def parse_page(page_text: str) -> dict:
     # ── Pace pars ────────────────────────────────
         if 'PARS:' in line:
             page_data['pars'] = parse_pars(line)
+            continue
+
+    # ── Purse ────────────────────────────────────
+        if 'Purse' in line:
+            purse_match = re.search(r'Purse\s+\$(\d{1,3}(?:,\d{3})*)', line)
+            if purse_match:
+                page_data['purse'] = int(purse_match.group(1).replace(',', ''))
             continue
 
         # ── Entry header (post + horse + style) ──────
@@ -379,6 +387,7 @@ def process_pp_pdf(pdf_path: str) -> list:
             races[race_num] = {
                 'race_header': page['race_header'],
                 'pars':        page['pars'],
+                'purse':       page.get('purse'),   # ← ADD THIS LINE
                 'entries':     page['entries'],
             }
         else:
@@ -388,6 +397,10 @@ def process_pp_pdf(pdf_path: str) -> list:
             # Fill in pars if we got them on this page
             if page['pars'] and not existing['pars']:
                 existing['pars'] = page['pars']
+
+            # Fill in purse if we got it on this page  # ← ADD FROM HERE
+            if page.get('purse') and not existing.get('purse'):
+                existing['purse'] = page['purse']     # ← TO HERE
 
             # Fill in distance/surface if missing
             if not existing['race_header'].get('distance'):
@@ -444,17 +457,11 @@ def main():
               f"{header.get('distance')} {header.get('surface')} "
               f"{header.get('race_type')}")
         print(f"  Date:    {header.get('race_date')}")
-        print(f"  Purse:   {header.get('purse')}")
+        print(f"  Purse:   {race.get('purse')}")
         print(f"  Pars:    E1={pars.get('pace_par_e1')} "
               f"E2={pars.get('pace_par_e2')} "
               f"Late={pars.get('pace_par_late')}")
         print(f"  Entries: {len(race['entries'])}")
-        for entry in race['entries']:
-            print(f"    {entry.get('post_position')} "
-                  f"{entry.get('horse_name')} "
-                  f"({entry.get('running_style')}) "
-                  f"PP={entry.get('prime_power')} "
-                  f"PPs={len(entry.get('past_performances', []))}")
 
         for entry in race['entries']:
             print(f"    {entry.get('post_position')} "
